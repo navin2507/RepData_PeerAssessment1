@@ -1,0 +1,107 @@
+---
+title: "RepData_PeerAssessment1"
+author: "Navin Bhatera"
+date: "Monday, March 16, 2015"
+output: html_document
+---
+
+This document contains the Peer Assignment 1 for Reproducible Research course as part of Data Science specialization at Coursera
+
+Loading and Preprocessing data : 
+```{r first,echo = TRUE}
+library(ggplot2)
+activity <- read.csv("activity.csv",header=T,colClasses=c("numeric", "character", "numeric"))
+activity$date <- as.Date(activity$date, format = "%Y-%m-%d")
+activity$interval <- as.factor(activity$interval)
+str(activity)
+```
+
+Histogram for the processed data (excluding NA's)
+
+```{r second,echo=TRUE}
+daysteps <- tapply(activity$steps, activity$date, FUN=sum, na.rm=T)
+hist(daysteps,main="Number of steps taken per day", xlab="Steps", col="red",breaks=10)
+
+```
+
+The mean of steps taken per day is 
+
+```{r third,echo=TRUE}
+mean(daysteps, na.rm=T)
+```
+
+The median of steps taken per day is 
+
+```{r fourth,echo=TRUE}
+median(daysteps, na.rm=T)
+```
+
+Avergage daily actiity pattern is plotted below
+```{r fifth, echo=TRUE}
+daysteps_mean <- aggregate(x=list(steps=activity$steps), by = list(interval=activity$interval),
+                           FUN=mean, na.rm=T)
+daysteps_mean$interval <- as.integer(levels(daysteps_mean$interval)[daysteps_mean$interval])
+ggplot(daysteps_mean, aes(x=interval, y=steps)) +   
+    geom_line(color="red", size=1) +  
+    labs(title="Average Daily Activity Pattern", x="Interval", y="Steps")
+```
+
+Max number of steps for a particular 5-min interval can be located at 
+
+```{r sixth, echo=TRUE}
+daysteps_mean[which.max(daysteps_mean$steps),]
+```
+
+
+New dataset creation: (using mean of the day as filler)
+
+```{r seventh, echo=TRUE}
+fillstep <- function(steps, int) {
+  temp = 0
+  if (!is.na(steps)) temp = steps
+  else temp = daysteps_mean[daysteps_mean$interval == int, "steps"]
+  return(temp)
+  }
+activity_fill <- activity
+activity_fill$steps <- mapply(fillstep,activity_fill$steps,activity_fill$interval)
+```
+
+Histogram Plot with the new data set: (NA's replaced by Day Mean)
+
+```{r eight, echo=TRUE}
+daysteps_fill <- tapply(activity_fill$steps, activity_fill$date, FUN=sum, na.rm=T)
+hist(daysteps_fill, main="Number of steps taken per day", xlab="Steps",col="blue",breaks=10)
+
+```
+
+
+The mean of steps taken per day is 
+
+```{r ninth,echo=TRUE}
+mean(daysteps_fill)
+```
+
+The median of steps taken per day is 
+
+```{r tenth,echo=TRUE}
+median(daysteps_fill)
+```
+
+
+Now evaluating the difference between weekdays and weekend activity pattern: 
+
+```{r eleventh, echo=TRUE}
+weekdaytype <- function(date){
+  day <- weekdays(date)
+  if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"))
+    return("weekday") 
+  else if (day %in% c("Saturday", "Sunday")) 
+    return("weekend")
+  else stop("invalid date")
+  }
+activity_fill$day <- sapply(activity_fill$date, FUN = weekdaytype)
+
+daytype_mean <- aggregate(steps ~ interval + day, data = activity_fill, mean)
+ggplot(daytype_mean, aes(as.numeric(interval), steps)) + geom_line(col="blue") + facet_grid(day ~ .) + labs(title="Average Daily Activity Pattern", x="Interval", y="Steps") + theme_bw()
+
+```
